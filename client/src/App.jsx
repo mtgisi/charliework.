@@ -1489,7 +1489,6 @@ export default function App() {
   const [memberQuestions, setMemberQuestions] = useState([]);
   const [membersModalOpen, setMembersModalOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
-  const [memberFilter, setMemberFilter] = useState('all');
   const [tab, setTab] = useState(() => {
     if (window.location.hash === '#questions') return 'questions';
     if (window.location.hash === '#team') return 'team';
@@ -1572,7 +1571,14 @@ export default function App() {
   }, [tasks]);
   const applyFilters = useCallback((list) => {
     let out = list;
-    if (filter !== 'all') out = out.filter(t => t.assignee === filter);
+    if (filter !== 'all') {
+      if (filter.startsWith('m:')) {
+        const mid = filter.slice(2);
+        out = out.filter(t => (t.assignee_member_id || '') === (mid === '__none' ? '' : mid));
+      } else {
+        out = out.filter(t => t.assignee === filter);
+      }
+    }
     if (catFilter !== 'all') {
       out = out.filter(t => {
         const cats = parseCats(t.category);
@@ -1580,11 +1586,8 @@ export default function App() {
         return cats.includes(catFilter);
       });
     }
-    if (memberFilter !== 'all') {
-      out = out.filter(t => (t.assignee_member_id || '') === (memberFilter === '__none' ? '' : memberFilter));
-    }
     return out;
-  }, [filter, catFilter, memberFilter]);
+  }, [filter, catFilter]);
   const filteredOpen = useMemo(() => applyFilters(open), [open, applyFilters]);
   const filteredSomeday = useMemo(() => applyFilters(someday), [someday, applyFilters]);
 
@@ -1826,19 +1829,20 @@ export default function App() {
                 <select className="select" value={filter} onChange={e => setFilter(e.target.value)}>
                   <option value="all">Everyone</option>
                   {me.assignees.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                  {members.filter(m => m.active).length > 0 && (
+                    <optgroup label="Team members">
+                      {members.filter(m => m.active).map(m => (
+                        <option key={m.id} value={`m:${m.id}`}>{m.label}</option>
+                      ))}
+                      <option value="m:__none">— No member —</option>
+                    </optgroup>
+                  )}
                 </select>
                 <select className="select" value={catFilter} onChange={e => setCatFilter(e.target.value)}>
                   <option value="all">All categories</option>
                   <option value="">No category</option>
                   {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
-                {members.filter(m => m.active).length > 0 && (
-                  <select className="select" value={memberFilter} onChange={e => setMemberFilter(e.target.value)}>
-                    <option value="all">All members</option>
-                    <option value="__none">No member</option>
-                    {members.filter(m => m.active).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-                  </select>
-                )}
               </>
             )}
           </div>
